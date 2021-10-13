@@ -132,11 +132,11 @@ controls = dbc.Card([
                                 html.Hr(),
                                 ]),
                     dbc.CardBody([
-                                html.H4("Control Panel", className="card-title"),
+                                html.H4("t-SNE", className="card-title"),
                                 dbc.Button(id='merge_data', children= "Merge Data", color="dark", className="mr-1" ),
                                 html.Br(),
                                 dbc.Label(id='mrege_data_status', children="Data merge"),
-                                html.Hr(),
+                                html.Br(),
                                 dbc.Button(id='tsne_button', children= "t-SNE Proc.", color="dark", className="mr-1" ),
                                 html.Br(),
                                 dbc.Label(id='tsne_status'),
@@ -752,7 +752,8 @@ def load_training_data():
 
 
 ##########################################################################################
-###### Merging functions
+###### Dataset Management functions
+###### All functions related to managing the datasets in data folder
 ##########################################################################################
 @app.callback(
     Output('mrege_data_status', 'children'),
@@ -856,6 +857,7 @@ def read_merged_data():
 
 ##########################################################################################
 ###### Plot functions
+###### Functions and callbacks to handle main plots
 ##########################################################################################
 @app.callback(
     Output('sample_size_status', 'children'),
@@ -1030,6 +1032,7 @@ def making_grid_image(data, sample_index):
 
 ##########################################################################################
 ###### selection functions
+###### functions and callbacks to handle selections
 ##########################################################################################
 @app.callback(
     Output('selected_data_fig', 'figure'),
@@ -1110,6 +1113,7 @@ def making_grid_selected_image(data, indices, items_to_show = 20):
 
 ##########################################################################################
 ###### t-SNE functions
+###### functions to operate t-SNE visualizations
 ##########################################################################################
 @app.callback(
     Output('tsne_button', 'children'),
@@ -1166,9 +1170,6 @@ def tsne_algorithm(data):
     msg = "processed t-SNE for {} data points".format(raw_data.shape[0])
     return (msg)
 
-
-#app.run_server(debug=True, port=8020)
-# app.run_server(port=8020)
 
 ######################################################################
 ### Dash App Running!
