@@ -314,20 +314,36 @@ app.layout = dbc.Container([
     Output('test_render', 'style'),
     Output('squeeze_factor_status', 'children'),
     Output('line_padding_status', 'children'),
-    Input('text_input', "value"),
+    Input('text_input', 'value'),
     Input('squeeze_factor', 'value'),
     Input('line_padding', 'value'),)
 def output_text(text_input, squeeze_factor, line_padding):
+    """
+    Renders an input text with the generated typeface.
+    Inputs: 
+        text_input (string): text to be rendered
+        squeeze_factor (int): space between each letter
+        line_padding (int): space between lines
+    outputs:
+        test_render figure (px.imshow): the rendered image
+        test_render style (dictionary): converts the figure style to visible
+        squeeze_factor_status (string): updates the text 
+        line_padding_status (string): updates the text
+    """
     global char_data
+
+    # generating the rendered image
     images = render_text (text_input, char_data, squeeze_factor, line_padding)
     sample_fig = px.imshow(images, binary_string=True)
     sample_fig.update_layout(coloraxis_showscale=False)
     sample_fig.update_xaxes(showticklabels=False)
     sample_fig.update_yaxes(showticklabels=False)
 
+    # formatting messages
     squeeze_factor_msg = ("Squeeze Factor: {}".format(squeeze_factor))
     line_padding_msg = ("Line padding: {}".format(line_padding))
 
+    # saving image
     timestr = time.strftime("%Y%m%d-%H%M%S")
     sample_fig.write_image("./renders/rendered_text_{}.jpeg".format(timestr))
 
@@ -350,16 +366,34 @@ def output_text(text_input, squeeze_factor, line_padding):
     Input('std', 'value'),
     )
 def generate_samples(char_index, mean, std):
+    """
+    Using user inputs to generate each character.
+    Inputs: 
+        char_index (int): index of each char, from 0 to 51
+        mean (float): mean value for generation
+        std (float): std value for generation
+    outputs:
+        char_index_label (string): updates char index text
+        mean_label (string): updates mean text
+        std_label (string): updates std text
+        generated_chars (string): updates generated cahrs list text
+        remaining_chars (string): updates remaining cahrs list text
+        generated_samples (px imshow): image of generated sample at the moment
+        generated_samples (dict): converts the figure style to visible
+
+    """
     global char_data, vae_model, raw_data, device
 
     char = string.ascii_letters[int(char_index)]
-  
+    
+    # generating the new sample grid
     images, char_data, generated_ones, remaining = single_letter_test(char_index, mean, std, vae_model, raw_data, char_data, device, 4)
     sample_fig = px.imshow(images, binary_string=True)
     sample_fig.update_layout(coloraxis_showscale=False)
     sample_fig.update_xaxes(showticklabels=False)
     sample_fig.update_yaxes(showticklabels=False)
 
+    # generating messages
     generated_msg = ("{} chars generated: {}".format(len(generated_ones), generated_ones))
     remaining_msg = ("{} chars remaining: {}".format(len(remaining),remaining))
 
@@ -391,7 +425,7 @@ def load_model(n_clicks):
 @app.callback(
         Output("load_favorite_model_status", 'children'),
         Input("load_favorite_model", "n_clicks"))
-def load_model(n_clicks):
+def load_favorite_model(n_clicks):
     global vae_model
     if n_clicks is None:
         return (dash.no_update)
@@ -401,7 +435,6 @@ def load_model(n_clicks):
         vae_model.eval()
         print (vae_model)
         return "Favorite Model loaded"
-
 
 
 @app.callback(
