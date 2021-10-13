@@ -1,19 +1,33 @@
+'''
+    File name: models.py
+    Author: Ardavan Bidgoli
+    Date created: 10/13/2021
+    Date last modified: 10/13/2021
+    Python Version: 3.8.5
+    License: MIT
+'''
+
 ##########################################################################################
-###### Import 
+# Import
 ##########################################################################################
+
+# ML
 import torch
 import torch.nn as nn
 
 from torch import functional as F
 from torch import optim as optim
 
-import time
-import numpy as np 
+# misc
+import numpy as np
+
+# modules
 from .utils import batch_recon
 
 ##########################################################################################
-###### Classes 
+# Classes
 ##########################################################################################
+
 
 class Encoder(nn.Module):
     """
@@ -30,38 +44,37 @@ class Encoder(nn.Module):
         self.options = opt
         self.latent_size = self.options.LATENT_DIM
 
-        
         # The encoder CNN layers follow the CMBL order:
         # Conv -> MaxPool -> Batch Normalization -> LeakyRelu
-        # The first maxpooling layer is commented out to keep the shape correct 
-        # at the end  
-        
-        self.cell_filter = [16, 32, 64,128,8]
+        # The first maxpooling layer is commented out to keep the shape correct
+        # at the end
 
-        self.cnn_cell_1 = nn.Sequential(nn.Conv2d(1, self.cell_filter[0], 3, stride= 1, padding=1),
-                                      #nn.MaxPool2d(2),
-                                      nn.BatchNorm2d( self.cell_filter[0]),
-                                      nn.LeakyReLU(0.2))
-        
-        self.cnn_cell_2 = nn.Sequential(nn.Conv2d( self.cell_filter[0],  self.cell_filter[1], 3, stride= 1, padding=1),
-                                      nn.MaxPool2d(2),
-                                      nn.BatchNorm2d(self.cell_filter[1]),
-                                      nn.LeakyReLU(0.2))
+        self.cell_filter = [16, 32, 64, 128, 8]
 
-        self.cnn_cell_3 = nn.Sequential(nn.Conv2d(self.cell_filter[1], self.cell_filter[2], 3, stride= 1, padding=1),
-                                      nn.MaxPool2d(2),
-                                      nn.BatchNorm2d(self.cell_filter[2]),
-                                      nn.LeakyReLU(0.2))
-                              
-        self.cnn_cell_4 = nn.Sequential(nn.Conv2d(self.cell_filter[2], self.cell_filter[3], 3, stride= 1, padding=1),
-                                      nn.MaxPool2d(2),
-                                      nn.BatchNorm2d(self.cell_filter[3]),
-                                      nn.LeakyReLU(0.2))
-        
-        self.cnn_cell_5 = nn.Sequential(nn.Conv2d(self.cell_filter[3], self.cell_filter[4], 3, stride= 1, padding=1),
-                                      nn.MaxPool2d(2),
-                                      nn.BatchNorm2d(self.cell_filter[4]),
-                                      nn.LeakyReLU(0.2))
+        self.cnn_cell_1 = nn.Sequential(nn.Conv2d(1, self.cell_filter[0], 3, stride=1, padding=1),
+                                        # nn.MaxPool2d(2),
+                                        nn.BatchNorm2d(self.cell_filter[0]),
+                                        nn.LeakyReLU(0.2))
+
+        self.cnn_cell_2 = nn.Sequential(nn.Conv2d(self.cell_filter[0],  self.cell_filter[1], 3, stride=1, padding=1),
+                                        nn.MaxPool2d(2),
+                                        nn.BatchNorm2d(self.cell_filter[1]),
+                                        nn.LeakyReLU(0.2))
+
+        self.cnn_cell_3 = nn.Sequential(nn.Conv2d(self.cell_filter[1], self.cell_filter[2], 3, stride=1, padding=1),
+                                        nn.MaxPool2d(2),
+                                        nn.BatchNorm2d(self.cell_filter[2]),
+                                        nn.LeakyReLU(0.2))
+
+        self.cnn_cell_4 = nn.Sequential(nn.Conv2d(self.cell_filter[2], self.cell_filter[3], 3, stride=1, padding=1),
+                                        nn.MaxPool2d(2),
+                                        nn.BatchNorm2d(self.cell_filter[3]),
+                                        nn.LeakyReLU(0.2))
+
+        self.cnn_cell_5 = nn.Sequential(nn.Conv2d(self.cell_filter[3], self.cell_filter[4], 3, stride=1, padding=1),
+                                        nn.MaxPool2d(2),
+                                        nn.BatchNorm2d(self.cell_filter[4]),
+                                        nn.LeakyReLU(0.2))
 
         self.flatting = nn.Flatten()
         self.fc = nn.Linear(128, self.latent_size*2)
@@ -77,7 +90,8 @@ class Encoder(nn.Module):
         # epsilon is a vector of size (1, latent_dim)
         # it is samples from a Standard Normal distribution
         # mean = 0. and std = 1.
-        epsilon = torch.normal(mean= 0, std= 1, size = log_var.shape).to(self.device) 
+        epsilon = torch.normal(
+            mean=0, std=1, size=log_var.shape).to(self.device)
 
         # we need to convert log(var) into var:
         var = torch.exp(log_var*0.5)
@@ -93,7 +107,7 @@ class Encoder(nn.Module):
         x: input data of shape [batch_size, 64,64]
         """
         x = x.view(x.shape[0], 1, self.options.X_DIM, self.options.X_DIM)
-        
+
         # the CNN cells
         x = self.cnn_cell_1(x)
         x = self.cnn_cell_2(x)
@@ -111,7 +125,7 @@ class Encoder(nn.Module):
         # passing means and log_vars to the reparametrization function
         # to get corresponding samples from the normal distributions
         z = self.reparametrization(mean, log_var)
-        
+
         return z, mean, log_var
 
 
@@ -121,55 +135,62 @@ class Decoder(nn.Module):
         """
         The decoder class is the same as one from an AutoEncoder
         """
-        super(Decoder, self).__init__() 
-        
+        super(Decoder, self).__init__()
+
         self.options = opt
         self.device = device
         self.latent_size = self.options.LATENT_DIM
-    
-        self.fuser = nn.Sequential(nn.Linear(self.latent_size, 128)) 
-        
+
+        self.fuser = nn.Sequential(nn.Linear(self.latent_size, 128))
+
         self.cell_filter = [8, 128, 64, 32, 16]
 
         self.convT_cell_1 = nn.Sequential(
-                                    nn.ConvTranspose2d(self.cell_filter[0], self.cell_filter[1], 3, stride=2, padding=1, output_padding=1),
-                                    nn.BatchNorm2d(self.cell_filter[1]),
-                                    nn.LeakyReLU(0.2)) 
+            nn.ConvTranspose2d(
+                self.cell_filter[0], self.cell_filter[1], 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(self.cell_filter[1]),
+            nn.LeakyReLU(0.2))
 
         self.convT_cell_2 = nn.Sequential(
-                                        nn.ConvTranspose2d(self.cell_filter[1], self.cell_filter[2], 3, stride=2, padding=1, output_padding=1),
-                                        nn.BatchNorm2d(self.cell_filter[2]),
-                                        nn.LeakyReLU(0.2)) 
+            nn.ConvTranspose2d(
+                self.cell_filter[1], self.cell_filter[2], 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(self.cell_filter[2]),
+            nn.LeakyReLU(0.2))
 
         self.convT_cell_3 = nn.Sequential(
-                                        nn.ConvTranspose2d(self.cell_filter[2], self.cell_filter[3], 3, stride=2, padding=1, output_padding=0),
-                                        nn.BatchNorm2d(self.cell_filter[3]),
-                                        nn.LeakyReLU(0.2)) 
-                                        
+            nn.ConvTranspose2d(
+                self.cell_filter[2], self.cell_filter[3], 3, stride=2, padding=1, output_padding=0),
+            nn.BatchNorm2d(self.cell_filter[3]),
+            nn.LeakyReLU(0.2))
+
         self.convT_cell_4 = nn.Sequential(
-                                        nn.ConvTranspose2d(self.cell_filter[3], self.cell_filter[4], 3, stride=2, padding=1, output_padding=1),
-                                        nn.BatchNorm2d(self.cell_filter[4]),
-                                        nn.LeakyReLU(0.2)) 
+            nn.ConvTranspose2d(
+                self.cell_filter[3], self.cell_filter[4], 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(self.cell_filter[4]),
+            nn.LeakyReLU(0.2))
 
         self.convT_cell_5 = nn.Sequential(
-                                        nn.ConvTranspose2d(self.cell_filter[4], self.cell_filter[4], 3, stride=1),#, padding= (0,1)),
-                                        nn.BatchNorm2d(self.cell_filter[4]),
-                                        nn.LeakyReLU(0.2),
-                                        nn.Conv2d(self.cell_filter[4], 1, 3, stride= 1, padding=1),
-                                        nn.BatchNorm2d(1),
-                                        nn.Sigmoid(),
-                                        ).to(self.device)
+            # , padding= (0,1)),
+            nn.ConvTranspose2d(
+                self.cell_filter[4], self.cell_filter[4], 3, stride=1),
+            nn.BatchNorm2d(self.cell_filter[4]),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(self.cell_filter[4], 1, 3, stride=1, padding=1),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid(),
+        ).to(self.device)
 
         self.matcher = nn.Sequential(
-                                      nn.Linear(self.options.LATENT_DIM, 128),
-                                      nn.LeakyReLU(0.2),
-                                      ) 
-    def forward(self,z):
+            nn.Linear(self.options.LATENT_DIM, 128),
+            nn.LeakyReLU(0.2),
+        )
+
+    def forward(self, z):
         """
         z: the latent vector [-1, 64]
         """
 
-        z = self.matcher(z) 
+        z = self.matcher(z)
         z = z.view(z.shape[0], 8, 4, 4)
         xy = self.convT_cell_1(z)
         xy = self.convT_cell_2(xy)
@@ -178,6 +199,7 @@ class Decoder(nn.Module):
         x_rec = self.convT_cell_5(xy)
 
         return x_rec
+
 
 class VAE (nn.Module):
     """
@@ -204,20 +226,21 @@ class VAE (nn.Module):
         z, mean, log_var = self.encoder_model(x)
 
         ########################################################################
-        ## Changes to convert the model to CVAE
+        # Changes to convert the model to CVAE
         # preparing y as the condition signal
         y = y.squeeze()
 
         # combining z and y
-        z_condition = torch.cat((z, y), 1) 
+        z_condition = torch.cat((z, y), 1)
         z_c_fused = self.fusion(z_condition)
-        
+
         # send the fused signal to the decoder!
         x_rec = self.decoder_model(z_c_fused)
-        ## End of changes
+        # End of changes
         ########################################################################
-        
+
         return x_rec, mean, log_var
+
 
 def loss_function(x, x_rec, mean, log_var):
     """
@@ -228,16 +251,18 @@ def loss_function(x, x_rec, mean, log_var):
       log_var: log_var vector
     """
     # reconstruction loss using Binary Cross Entropy
-    rec_loss = nn.functional.binary_cross_entropy(x_rec.squeeze(), x.squeeze().detach(), reduction='sum')
-    
+    rec_loss = nn.functional.binary_cross_entropy(
+        x_rec.squeeze(), x.squeeze().detach(), reduction='sum')
+
     # the distribution loss using KLD
-    KLD = - 0.5 * torch.sum(1+ log_var - mean.pow(2) - log_var.exp())
+    KLD = - 0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
 
     # you can also add different weight to these two
     total_loss = rec_loss + KLD
     return total_loss, rec_loss, KLD
 
-def eval_model(model, options, data_iterator,device, plot, epoch=0):
+
+def eval_model(model, options, data_iterator, device, plot, epoch=0):
     """
     This function puts the model in eval mode (to change the behavior of batchNorm)
     and then pass the test data to evaluate the model
@@ -248,7 +273,7 @@ def eval_model(model, options, data_iterator,device, plot, epoch=0):
     """
 
     model.eval()
-    # turning off the gradient 
+    # turning off the gradient
     with torch.no_grad():
         eval_losses = []
         eval_rec_losses = []
@@ -262,20 +287,21 @@ def eval_model(model, options, data_iterator,device, plot, epoch=0):
             y = y.to(device)
 
             # pass the data in the model
-            x_rec, mean, log_var = model(x,y)
-            
+            x_rec, mean, log_var = model(x, y)
+
             # calcualte the loss
-            loss,rec_loss , kld_loss = loss_function(x.squeeze(), x_rec.squeeze(), mean, log_var)
-            
+            loss, rec_loss, kld_loss = loss_function(
+                x.squeeze(), x_rec.squeeze(), mean, log_var)
+
             eval_losses.append(loss.item())
             eval_rec_losses.append(rec_loss.item())
             eval_kld_losses.append(kld_loss.item())
-    
-    return eval_losses, eval_rec_losses,eval_kld_losses
+
+    return eval_losses, eval_rec_losses, eval_kld_losses
 
 
 ##########################################################################################
-###### Support functions 
+# Support functions
 ##########################################################################################
 
 def train_model(model, optimizer, train_iterator, test_iterator, device, options):
@@ -293,11 +319,11 @@ def train_model(model, optimizer, train_iterator, test_iterator, device, options
     eval_loss_history = []
     eval_rec_losses_history = []
     eval_kld_losses_history = []
-    
-    fixed_sample= None
 
-    np.save("./plots/training_loss_history", np.zeros(shape=(1,1))) 
-    np.save("./plots/validation_loss_history", np.zeros(shape=(1,1))) 
+    fixed_sample = None
+
+    np.save("./plots/training_loss_history", np.zeros(shape=(1, 1)))
+    np.save("./plots/validation_loss_history", np.zeros(shape=(1, 1)))
     np.save("./plots/train_plot", np.ones(shape=(6*64, 8*64)))
 
     for epoch in range(options.N_EPOCHS):
@@ -316,11 +342,12 @@ def train_model(model, optimizer, train_iterator, test_iterator, device, options
             optimizer.zero_grad()
 
             # pass the data in the model
-            x_rec, mean, log_var = model(x,y)
+            x_rec, mean, log_var = model(x, y)
 
             # calcualte the loss
-            train_loss, train_rec_losses, train_kld_losses = loss_function(x.squeeze(), x_rec.squeeze(), mean, log_var)
-            
+            train_loss, train_rec_losses, train_kld_losses = loss_function(
+                x.squeeze(), x_rec.squeeze(), mean, log_var)
+
             # taking care of the next steps!
             train_loss.backward()
             optimizer.step()
@@ -332,18 +359,22 @@ def train_model(model, optimizer, train_iterator, test_iterator, device, options
         else:
             plot = False
         # evaluating the model and measuring the eval loss
-        eval_loss, eval_rec_losses, eval_kld_losses = eval_model(model,options, test_iterator,device, plot, epoch)
+        eval_loss, eval_rec_losses, eval_kld_losses = eval_model(
+            model, options, test_iterator, device, plot, epoch)
         train_loss_history.append(np.mean(epoch_loss))
         eval_loss_history.append(np.mean(eval_loss))
 
-        print (epoch, train_loss.item(), train_rec_losses.item(), train_kld_losses.item())
+        print(epoch, train_loss.item(),
+              train_rec_losses.item(), train_kld_losses.item())
 
         if plot:
-            np.save("./plots/training_loss_history", np.array(train_loss_history)) 
-            np.save("./plots/validation_loss_history", np.array(eval_loss_history)) 
+            np.save("./plots/training_loss_history",
+                    np.array(train_loss_history))
+            np.save("./plots/validation_loss_history",
+                    np.array(eval_loss_history))
 
         eval_rec_losses_history.append(np.mean(eval_rec_losses))
         eval_kld_losses_history.append(np.mean(eval_kld_losses))
         batch_recon(model, options, train_iterator, True, fixed_sample)
-        
+
     return model, train_loss_history, eval_loss_history

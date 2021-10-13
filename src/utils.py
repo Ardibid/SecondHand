@@ -2,12 +2,10 @@
 ###### Import 
 ##########################################################################################
 import torch
-import numpy as np 
 from torch.utils.data import DataLoader, Dataset
 
 import cv2
-import plotly.express as px
-
+import numpy as np 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

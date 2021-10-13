@@ -61,6 +61,33 @@ optimizer = None
 is_training = False    
 char_data = {} 
 
+num_of_classes= 52
+sample_size_each_char = 36
+sample_size = num_of_classes*sample_size_each_char
+
+# path
+data_folder = "./data/"
+plot_folder = "./plots/"
+model_folder = "./models/"
+render_folder = "./renders/"
+
+# file names
+samples_file_name_pattern = "alphabet_handwriting_64_"
+
+data_file_path = "alphabet_handwriting_64.npy"
+data_label_file_path = "labels.npy"
+
+tsne_distribution_numpy_file = "tsne_data.npy"
+
+selected_data_file = "selected_data.npy"
+selected_labels_file = "selected_labels.npy"
+
+train_plot_numpy_file = "train_plot.npy"
+training_history_numpy_file = "training_loss_history.npy"
+validation_history_numpy_file = "validation_loss_history.npy"
+
+saved_model_file = "trained_model"
+
 
 ##########################################################################################
 ###### App setup
@@ -183,11 +210,13 @@ generation_variabels = dbc.Card([
                                     html.P(id="remaining_chars"), 
                                     dbc.Button(id='save_typeface', children= "Save Typeface", color="dark", className="mr-1" ),
                                     html.P(id="save_typeface_status", children=""),
+                                    html.Hr(),
                                     dbc.Button(id='load_model', children= "Load Trained Model", color="dark", className="mr-1" ),
-                                    html.P(id="load_model_status", children=""),
+                                    html.Br(),
+                                    html.P(id="spacer", children=""),
                                     dbc.Button(id='load_favorite_model', children= "Load Favorite Model", color="dark", className="mr-1" ),
-                                    html.P(id="load_favorite_model_status", children=""),
-                                ])
+                                    html.P(id="load_model_status", children=""),
+                                    ])
                     ],
                     body=True,
                    )
@@ -295,19 +324,19 @@ data_graphs = dbc.Card([
                                             ),
                                     ])
                         ])
+header = html.H1("SecondHand Dashboard")
+
 app.layout = dbc.Container([
-                    html.H1("SecondHand Dashboard"),
-                    html.Hr(),
-                    data_graphs,
-                    html.Hr(),
-                    operation_tabs,
-                    ])#,fluid=True)
-
-
-
+                            header,
+                            html.Hr(),
+                            data_graphs,
+                            html.Hr(),
+                            operation_tabs,
+                        ])
 
 ##########################################################################################
 ###### Generate functions
+###### All functions related to sampling from the ML model and generaing new typefaces
 ##########################################################################################
 @app.callback(
     Output('test_render','figure'),
@@ -316,7 +345,8 @@ app.layout = dbc.Container([
     Output('line_padding_status', 'children'),
     Input('text_input', 'value'),
     Input('squeeze_factor', 'value'),
-    Input('line_padding', 'value'),)
+    Input('line_padding', 'value'),
+    prevent_initial_call=True)
 def output_text(text_input, squeeze_factor, line_padding):
     """
     Renders an input text with the generated typeface.
@@ -331,26 +361,30 @@ def output_text(text_input, squeeze_factor, line_padding):
         line_padding_status (string): updates the text
     """
     global char_data
+    
+    if (text_input is None):
+        return (dash.no_update, )*4
+    
+    else:
+        # generating the rendered image
+        images = render_text (text_input, char_data, squeeze_factor, line_padding)
+        sample_fig = px.imshow(images, binary_string=True)
+        sample_fig.update_layout(coloraxis_showscale=False)
+        sample_fig.update_xaxes(showticklabels=False)
+        sample_fig.update_yaxes(showticklabels=False)
 
-    # generating the rendered image
-    images = render_text (text_input, char_data, squeeze_factor, line_padding)
-    sample_fig = px.imshow(images, binary_string=True)
-    sample_fig.update_layout(coloraxis_showscale=False)
-    sample_fig.update_xaxes(showticklabels=False)
-    sample_fig.update_yaxes(showticklabels=False)
+        # formatting messages
+        squeeze_factor_msg = ("Squeeze Factor: {}".format(squeeze_factor))
+        line_padding_msg = ("Line padding: {}".format(line_padding))
 
-    # formatting messages
-    squeeze_factor_msg = ("Squeeze Factor: {}".format(squeeze_factor))
-    line_padding_msg = ("Line padding: {}".format(line_padding))
+        # saving image
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        sample_fig.write_image(render_folder+"rendered_text_{}.jpeg".format(timestr))
 
-    # saving image
-    timestr = time.strftime("%Y%m%d-%H%M%S")
-    sample_fig.write_image("./renders/rendered_text_{}.jpeg".format(timestr))
-
-    return  (sample_fig, 
-             {'visibility':'visible'}, 
-             squeeze_factor_msg, 
-             line_padding_msg)
+        return  (sample_fig, 
+                {'visibility':'visible'}, 
+                squeeze_factor_msg, 
+                line_padding_msg)
 
 
 @app.callback(
@@ -364,6 +398,7 @@ def output_text(text_input, squeeze_factor, line_padding):
     Input('char_index', 'value'),
     Input('mean', 'value'),
     Input('std', 'value'),
+    prevent_initial_call=True
     )
 def generate_samples(char_index, mean, std):
     """
@@ -385,57 +420,88 @@ def generate_samples(char_index, mean, std):
     global char_data, vae_model, raw_data, device
 
     char = string.ascii_letters[int(char_index)]
-    
-    # generating the new sample grid
-    images, char_data, generated_ones, remaining = single_letter_test(char_index, mean, std, vae_model, raw_data, char_data, device, 4)
-    sample_fig = px.imshow(images, binary_string=True)
-    sample_fig.update_layout(coloraxis_showscale=False)
-    sample_fig.update_xaxes(showticklabels=False)
-    sample_fig.update_yaxes(showticklabels=False)
 
-    # generating messages
-    generated_msg = ("{} chars generated: {}".format(len(generated_ones), generated_ones))
-    remaining_msg = ("{} chars remaining: {}".format(len(remaining),remaining))
+    if raw_data is None:
+        return ("Char: {}".format(char), 
+                "Mean: {}".format(mean),
+                "Std: {}".format(std), 
+                dash.no_update,
+                dash.no_update,
+                dash.no_update, 
+                dash.no_update, 
+                )
+    else:
+        # generating the new sample grid
+        images, char_data, generated_ones, remaining = single_letter_test(char_index, mean, std, vae_model, raw_data, char_data, device, 4)
+        sample_fig = px.imshow(images, binary_string=True)
+        sample_fig.update_layout(coloraxis_showscale=False)
+        sample_fig.update_xaxes(showticklabels=False)
+        sample_fig.update_yaxes(showticklabels=False)
 
+        # generating messages
+        generated_msg = ("{} chars generated: {}".format(len(generated_ones), generated_ones))
+        remaining_msg = ("{} chars remaining: {}".format(len(remaining),remaining))
 
-    return ("Char: {}".format(char), 
-            "Mean: {}".format(mean),
-            "Std: {}".format(std), 
-            generated_msg,
-            remaining_msg,
-            sample_fig, 
-            {'visibility':'visible'}, 
-            )
+        return ("Char: {}".format(char), 
+                "Mean: {}".format(mean),
+                "Std: {}".format(std), 
+                generated_msg,
+                remaining_msg,
+                sample_fig, 
+                {'visibility':'visible'}, 
+                )
+
 
 @app.callback(
         Output("load_model_status", 'children'),
-        Input("load_model", "n_clicks"))
-def load_model(n_clicks):
-    global vae_model
-    if n_clicks is None:
-        return (dash.no_update)
-    else:
-        load_training_data()
-        vae_model = torch.load("./models/trained_model") 
-        vae_model.eval()
-        print (vae_model)
-        return "Model loaded"
-
-
-@app.callback(
-        Output("load_favorite_model_status", 'children'),
+        Input("load_model", "n_clicks"),
         Input("load_favorite_model", "n_clicks"))
-def load_favorite_model(n_clicks):
+def load_saved_model(load_model, load_favorite_model):
+    """
+    Loads the default saved pytorch model. 
+    inputs: 
+        load_model n_clicks (int): checks if the button is pressed
+    outputs:
+        load_model_status children (string): updates the status text
+    """
     global vae_model
-    if n_clicks is None:
-        return (dash.no_update)
-    else:
-        load_training_data()
-        vae_model = torch.load("./models/favorite_model") 
-        vae_model.eval()
-        print (vae_model)
-        return "Favorite Model loaded"
 
+    file_to_load = None
+    msg = None
+    ctx= None
+
+    ctx = dash.callback_context
+
+
+    # ignoring if the key has never pressed
+    if not ctx.triggered:
+        return (dash.no_update)
+    
+    # case for each button
+    elif not( load_model is None and load_favorite_model is None):
+        # checking what to load
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+       
+        if button_id == "load_model":
+            file_to_load = "./models/trained_model"
+            msg = "Trained model is loaded"
+        
+        elif button_id == "load_favorite_model":
+            file_to_load = "./models/favorite_model"
+            msg = "Favorite model is loaded"
+        
+        else:
+            return "Nof file loaded"
+
+        # sampling requires having a dataloder, loads the latest selection
+        load_training_data()
+        vae_model = torch.load(file_to_load) 
+        vae_model.eval()
+        return msg
+    
+    # if there is no event
+    else:
+        return (dash.no_update)
 
 @app.callback(
         Output("save_typeface_status", 'children'),
@@ -443,17 +509,29 @@ def load_favorite_model(n_clicks):
         Output('latest_typeface', 'style'),
         Input("save_typeface", "n_clicks"))
 def save_typeface(n_clicks):
+    """
+    Saving the generated typeface at the default path. Then shows a sample of all chars
+    inputs:
+        save_typeface n_clicks (int): checks if the button is pressed
+    outpust:
+        save_typeface_status children (string): updates the statues text
+        latest_typeface figure (px.imshow): image of generated sample at the moment
+        latest_typeface style (dictionary):  converts the figure style to visible
+    """
     global char_data
+
+    # ignoring if the key has never pressed
     if n_clicks is None:
         return (dash.no_update)
     else:
+        # generating sample chars
         images = finalize_font(char_data)
         sample_fig = px.imshow(images, binary_string=True)
         sample_fig.update_layout(coloraxis_showscale=False)
         sample_fig.update_xaxes(showticklabels=False)
         sample_fig.update_yaxes(showticklabels=False)
 
-
+        # saving the image
         timestr = time.strftime("%Y%m%d-%H%M%S")
         sample_fig.write_image("./renders/font_catalogue_{}.jpeg".format(timestr))
         
@@ -463,36 +541,44 @@ def save_typeface(n_clicks):
 
 ##########################################################################################
 ###### Train functions
+###### All functions related to trainig the ML model
 ##########################################################################################
+
 @app.callback(Output('train_progress', 'figure'),
               Output('train_progress', 'style'),
               Output('train_progress_graph', 'figure'),
               Output('train_progress_graph', 'style'),
               Input('interval-component', 'n_intervals'))
 def update_metrics(n):
+    """
+    Updates the training graphs automatically.
+    """
     global is_training
-    
+
+    # check if the model is in training mode
     if is_training:
-        image= np.load("./plots/train_plot.npy")
+        # loading files
+        plot_numpy_file_path = join(plot_folder, train_plot_numpy_file)
+        training_loss   = np.load(join(plot_folder, training_history_numpy_file))
+        validation_loss = np.load(join(plot_folder, validation_history_numpy_file))
+
+        # making the figure
+        image= np.load(plot_numpy_file_path)
         sample_fig = px.imshow(image, binary_string=True)
         sample_fig.update_layout(coloraxis_showscale=False)
         sample_fig.update_xaxes(showticklabels=False)
         sample_fig.update_yaxes(showticklabels=False)
 
-        training_loss   = np.load("./plots/training_loss_history.npy")
-        validation_loss = np.load("./plots/validation_loss_history.npy")
-
+        # creating the plot
         progress_plot = go.Figure()
-
         progress_plot.add_trace(go.Scatter(y=training_loss,
                     mode='lines',
                     name='Training Loss'))
-        
+
         progress_plot.add_trace(go.Scatter( y=validation_loss,
                     mode='lines',
                     name='Validation Loss'))
 
-        progress_plot.update_yaxes(type="log")
         progress_plot.update_layout(
                             legend=dict(
                                 x=0,
@@ -506,7 +592,8 @@ def update_metrics(n):
                             )
                         )
 
-        return sample_fig, {'visibility':'visible'},progress_plot, {'visibility':'visible'}
+        return sample_fig, {'visibility':'visible'},progress_plot,{'visibility':'visible'}
+                
     else:
         return (dash.no_update,)*4
 
@@ -515,6 +602,14 @@ def update_metrics(n):
     Output("epoch_number_status", 'children'),
     Input('epoch_number', 'value'))
 def set_epoch_numbers(epoch_number):
+    """
+    Updates the number of epochs
+    inptus:
+        epoch_number (int): number of epochs to train the model
+    outputs:
+        epoch_number_status children (string): the status update 
+    """
+
     global number_of_epochs
     if epoch_number is None:
         return (dash.no_update)
@@ -526,25 +621,46 @@ def set_epoch_numbers(epoch_number):
         Output("reset_model_status", 'children'),
         Input("reset_model", "n_clicks"))
 def reset_model(n_clicks):
+    """
+    Creates the model at loading, then upon click, resets the model, and probably solve all human problems
+    inputs:
+        reset_model n_clicks (int): clicks on the button
+    outputs:
+        reset_model_status children (string): the status update 
+    """
     global vae_model, options, optimizer
+
     if n_clicks is None:
         options = Option_list(n_class= 52)
         vae_model = VAE(options, device).to(device)
         optimizer = optim.Adam(vae_model.parameters(), lr = options.lr)
-        return "Model created"
+        return "Model initiated"
     else:
+        print(torch.cuda.memory_allocated())
+        vae_model = None
+        print(torch.cuda.memory_allocated())
         vae_model = VAE(options, device).to(device)
+        print(torch.cuda.memory_allocated())
         return "Model reset"
 
 @app.callback(
         Output("save_model_status", 'children'),
         Input("save_model", "n_clicks"))
 def save_model(n_clicks):
+    """
+    Saves the model and overrides the previous save. 
+    inputs:
+        save_model n_clicks (int): clicks on the button
+    outputs:
+        save_model_status children (string): the status update 
+    """
+
     global vae_model
     if n_clicks is None:
         return "No model saved"
     else:
-        torch.save(vae_model,"./models/trained_model")
+        model_save_path = join(model_folder, saved_model_file)
+        torch.save(vae_model, model_save_path)
         return "Model saved"
 
 @app.callback(
@@ -552,11 +668,21 @@ def save_model(n_clicks):
     Output('validation_status', 'children'),
     Input('training_model', 'n_clicks'))
 def train_model_call(n_clicks):
+    """
+    Trains the model for a given number of epochs. 
+    inputs:
+        training_model n_clicks (int): clicks on the button
+    outputs:
+        save_model_status children (string): the status update 
+    """
     global vae_model, train_dataset, test_dataset, train_iterator, test_iterator, options, optimizer
     global is_training
+
     if n_clicks is None:
-        labels = np.load("./data/selected_labels.npy")
-        return (dash.no_update, "Preselected sample size: {}".format(labels.shape[0]))
+        selected_label_path = join(data_folder, selected_labels_file)
+        labels = np.load(selected_label_path)
+        msg = "Preselected sample size: {}".format(labels.shape[0])
+        return (dash.no_update, msg)
     else:
         is_training = True
         train_dataset, test_dataset, train_iterator, test_iterator = load_training_data()
@@ -565,20 +691,25 @@ def train_model_call(n_clicks):
 
         vae_model, train_loss_history, eval_loss_history = train_model(vae_model, optimizer, train_iterator, test_iterator, device, options)
 
-        #reconstruct_figure = batch_recon(vae_model, options,train_iterator)
-
         train_report = "Training Loss: {:2f}".format(train_loss_history[-1])
         eval_report = "Eval Loss: {:2f}".format(eval_loss_history[-1])
         
         is_training = False
-        return (train_report,eval_report)
+
+        return (train_report, eval_report)
 
 def load_training_data():
+    """
+    Loads the training data from the data folder
+    """
     global raw_data, train_dataset, test_dataset, train_iterator, test_iterator, options
+    
+    x_path = join(data_folder, selected_data_file)
+    y_path = join(data_folder, selected_labels_file)
 
     raw_data = Handwiriting_dataset(resize_input=False, 
-                                x_path= "./data/selected_data.npy", 
-                                y_path = "./data/selected_labels.npy",)
+                                x_path= x_path, 
+                                y_path =y_path)
                                 
     return dataloader_creator(raw_data, options)
 
@@ -589,28 +720,36 @@ def load_training_data():
 @app.callback(
     Output('mrege_data_status', 'children'),
     Input('merge_data','n_clicks' ))
-def merge_data_from_server(input_value):
-  global shared_dataset
-  global shared_dataset_labels
-  if input_value is None:
-        return "Press to merge" 
-  else:
-    loaded_data_shape = merge_data()
-    return "Merged and save data with shape {}".format(loaded_data_shape) 
+def merge_all_samples_in_data_folder(input_value):
+    """
+    Reads the data folder and finds all files that match specific pattern, then merge them in a 
+    file, this file can be used in the next step to feed the t-sne algorithm.
+    inputs: 
+        merge_data n_clicks (int): checks if the button is pressed
+    outputs:
+        mrege_data_status children (string): updates the status text
+    """
+    global shared_dataset
+    global shared_dataset_labels
+
+    if input_value is None:
+            return "Press to merge" 
+    else:
+        loaded_data_shape = merge_data()
+        msg = "Merged and save data with shape {}".format(loaded_data_shape) 
+        return msg
 
 def merge_data():
     """
     A function to read all the alphabet_handwriting_64_init_n.py files
     and merge them in one single big file!
     """
-    global  merged_dataset
-    num_of_classes= 52
-    path_to_search = "./data/"
+    global  merged_dataset, num_of_classes, sample_size 
 
     # reading all the files in the folder
-    all_files = [f for f in listdir(path_to_search) if isfile(join(path_to_search, f))]
-    data_files = [join(path_to_search,f) for f in all_files if f[:24] == "alphabet_handwriting_64_"]
-    print (data_files)
+    all_files = [f for f in listdir(data_folder) if isfile(join(data_folder, f))]
+    data_files = [join(data_folder,f) for f in all_files if f[:24] == samples_file_name_pattern]
+    
     merged_dataset = np.empty(shape = (1, 64,64))
     merged_dataset_label= np.empty(shape = (1, num_of_classes))
 
@@ -618,12 +757,12 @@ def merge_data():
         tmp_data = np.load(file)
 
         # make sure that the last blank cells are ommited
-        if tmp_data.shape[0] > 1872:
-            tmp_data = tmp_data[:1872]
+        if tmp_data.shape[0] > sample_size:
+            tmp_data = tmp_data[:sample_size]
         if tmp_data.ndim > 3:
             tmp_data = tmp_data.reshape(-1, 64, 64)
 
-        y = create_labels(tmp_data.shape[0], num_of_classes)
+        y = create_labels()
         merged_dataset = np.vstack((merged_dataset, tmp_data))
         merged_dataset_label = np.vstack((merged_dataset_label, y))
 
@@ -635,20 +774,24 @@ def merge_data():
     print ("Size of merged data labels: {}".format(merged_dataset_label.shape))
     
     # saving
-    np.save("./data/alphabet_handwriting_64", merged_dataset)
-    np.save("./data/labels", merged_dataset_label)
+    merged_dataset_file_path = join(data_folder, data_file_path)
+    merged_dataset_label__file_path = join(data_folder, data_label_file_path)
+
+    np.save(merged_dataset_file_path, merged_dataset)
+    np.save(merged_dataset_label__file_path, merged_dataset_label)
 
     return merged_dataset.shape
 
-def create_labels(sample_size = 1872, num_of_classes= 52):
+def create_labels():
     """
     Convert the labels to one-hot vectors and saves them.
-    IMPORTANT NORE: IT ONLY WORKS IF YOU HAVE ALL 11 PAGES SCANNED CORRECTLY!
     """
+    global num_of_classes,  sample_size, sample_size_each_char
+
     y = np.empty((0, num_of_classes))
 
     for i in range (num_of_classes):
-        one_hot_vec = np.zeros((36, num_of_classes))
+        one_hot_vec = np.zeros((sample_size_each_char, num_of_classes))
         one_hot_vec[:,i] = 1
         y = np.vstack((y, one_hot_vec))
 
@@ -662,8 +805,13 @@ def read_merged_data():
     """
     global shared_dataset_labels
     global shared_dataset
-    shared_dataset_labels = np.load("./data/labels.npy")
-    shared_dataset = np.load("./data/alphabet_handwriting_64.npy")
+
+    shared_dataset_path = join(data_folder, data_file_path)
+    shared_dataset_labels_path = join(data_folder, data_label_file_path)
+
+    shared_dataset = np.load(shared_dataset_path)
+    shared_dataset_labels = np.load(shared_dataset_labels_path)
+
     print("-------------------------")
     print ("data loaded: {}".format(shared_dataset.shape))
     print("-------------------------")
@@ -681,12 +829,14 @@ def read_merged_data():
     Output('data_plot_label', 'style'),
     Input('sample_size', 'value'))
 def update_sample_size(sample_size):
+    """
+    Changes the samples to be displayed on the data curation plots
+    """
     global tsne_samples_size
     global shared_dataset_labels
     
     if sample_size is None:
         return (dash.no_update,)* 6
-
     else:
         tsne_samples_size = sample_size
         scatter_plot, scatter_plot_label = plot_data_wrapper()
@@ -697,23 +847,25 @@ def update_sample_size(sample_size):
 
 def plot_data_wrapper():
     """
-
+    generates the two plots for the main data distribution plots
     """
     global shared_dataset_labels
     global shared_dataset
     global show_visualization
     global tsne_samples_size
     global tsne_data
+
     # handle the data loading and labling
     read_merged_data()
+
     show_visualization = True
-    tsne_data = np.load('./data/tsne_data.npy')[:tsne_samples_size]
+    tsne_data_file_path = join(data_folder, tsne_distribution_numpy_file)
+    tsne_data = np.load(tsne_data_file_path)[:tsne_samples_size]
     labels_as_number = np.array([np.where(r==1)[0][0] for r in shared_dataset_labels[:tsne_samples_size]])
     raw_data_embedded_df = pd.DataFrame({'x': tsne_data[:,0], 
                     'y': tsne_data[:,1],
                     'label': labels_as_number,
                     })
-   
    
     # creating the plots
     # plot with tsne embedding on x and y axis
@@ -794,11 +946,23 @@ def making_grid_image(data, sample_index):
     """
     A utility function to build a grid of images from the 
     samples in the dataset that are before and after the
-    hovered sample.
+    hovered sample. Also handles cases of having a sample from the 
+    the begining and the end of the list
+    inputs 
+        data (nparray): all samples
+        sample_index (int): index of the item that the mouse hovers on
+    returns:
+        image (nparray): a 2d nparray of shape 64*items_to_show x 64*items_to_show
+                         that has total_items cells of the same char
     """
     items_to_show = 3
     total_items = items_to_show**2
 
+    # placeholder for these two values
+    start_index = 0
+    end_index = total_items
+
+    # handling the edge cases:
     if 3 < sample_index%36 < 32:
         start_index = sample_index-(total_items//2)
         end_index = sample_index+(total_items//2)
@@ -813,6 +977,7 @@ def making_grid_image(data, sample_index):
 
     if items_to_show%2 !=0:
         end_index +=1 
+
 
     sample_indices = np.arange(start_index, end_index)   
     images = np.zeros(shape=(64*items_to_show, 64*items_to_show))
@@ -835,11 +1000,16 @@ def making_grid_image(data, sample_index):
     Output('selected_indices', 'children'),
     Input('data_plot', 'selectedData'),
     Input('data_plot_label', 'selectedData'))
-def show_selected_data(selectedData,selectedData_label ):
+def show_selected_data(selectedData,selectedData_label):
     """
     Shows the samples that are selected by the user.
-    selectedData: the indices of selected data
-    selectedData_label: the lables of selected data [0, 51]
+    inputs:
+        selectedData: the indices of selected data
+        selectedData_label: the lables of selected data [0, 51]
+    outputs:
+        selected_data_fig figure (px.imshow): grid image of selected samples
+        selected_data_fig style (dic): style set to visible
+        msg (string): update message
     """
     global shared_dataset_labels
     global shared_dataset
@@ -852,7 +1022,7 @@ def show_selected_data(selectedData,selectedData_label ):
         data.extend(selectedData_label["points"])
 
     if show_visualization and len(data)> 0:
-        selected_indices = [datum['pointIndex'] for datum in data]
+        selected_indices = [d['pointIndex'] for d in data]
         size_message = len(selected_indices)
 
         # saving the data on the disk
@@ -866,7 +1036,9 @@ def show_selected_data(selectedData,selectedData_label ):
         sample_fig.update_layout(coloraxis_showscale=False)
         sample_fig.update_xaxes(showticklabels=False)
         sample_fig.update_yaxes(showticklabels=False)
-        return [sample_fig,{'visibility': 'visible'},("{} item(s) selected.".format(size_message))]
+
+        msg = "{} item(s) selected.".format(size_message)
+        return [sample_fig,{'visibility': 'visible'}, msg]
 
     else:
        return (dash.no_update,)* 3 
@@ -876,7 +1048,13 @@ def making_grid_selected_image(data, indices, items_to_show = 20):
     Makes a grid of size NxN (N= items_to_show) from the samples 
     in the dataset which their indices are given.
     If the sample size is bigger than NxN, then it only shows NxN of them
-    selected random;y.
+    selected randomly.
+    inputs:
+        data (nparray): sample data
+        indices (list): indices of samples to show
+        items_to_show (int): number of items to be shown
+    output:
+        images (nparray): the grid of samples
     """
 
     total_items = items_to_show**2
@@ -925,6 +1103,10 @@ def tsne_algorithm(data):
     Quick wrapper to run the openTSNE implementation of t-SNE algorithm
     This implementation only reads 1-D data, so it needs some preparations
     It saves the data on a numpy file.
+    inputs:
+        data (nparray): data in its original format (n, 64, 64)
+    outputs:
+        msg (string): updating message
     """
     tsne = TSNE(
             perplexity=30,
@@ -936,11 +1118,16 @@ def tsne_algorithm(data):
 
     raw_data = np.copy(data)
     raw_data = raw_data.reshape(raw_data.shape[0], -1)
+
     print ("start t-SNE")
     raw_data_embedded = tsne.fit(raw_data)
     print ("Finished t-SNE")
-    np.save("./data/tsne_data", raw_data_embedded)
-    return ("processed t-SNE for {} data points".format(raw_data.shape[0]))
+    
+    tsne_data_path = join(data_folder, tsne_distribution_numpy_file)
+    np.save(tsne_data_path, raw_data_embedded)
+
+    msg = "processed t-SNE for {} data points".format(raw_data.shape[0])
+    return (msg)
 
 
 app.run_server(debug=True, port=8020)
