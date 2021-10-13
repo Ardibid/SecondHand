@@ -1,6 +1,16 @@
+'''
+    File name: secondhand_dashboard.py
+    Author: Ardavan Bidgoli
+    Date created: 10/13/2021
+    Date last modified: 10/13/2021
+    Python Version: 3.8.5
+    License: MIT
+'''
+
 ##########################################################################################
-###### Import 
+###### Imports
 ##########################################################################################
+# Dash and UI
 import dash
 from dash import dcc, html 
 from dash.exceptions import PreventUpdate
@@ -10,6 +20,7 @@ import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
 
+# ML
 from torch import optim as optim
 
 import numpy as np
@@ -18,11 +29,13 @@ import pandas as pd
 from scipy.spatial import KDTree
 from openTSNE import TSNE
 
+# System
 from os import listdir
 from os.path import isfile, join
 
+# Modules
 from src.utils import *
-from src.models import Encoder, Decoder, VAE, loss_function, train_model, eval_model
+from src.models import *
 from src.sampling import *
 
 ##########################################################################################
@@ -35,7 +48,7 @@ merged_dataset = None
 tsne_samples_size = 2500
 tsne_data = None
 
-# training global data
+# training global variables
 number_of_epochs = 25
 raw_data = None
 train_dataset = None
@@ -45,7 +58,6 @@ test_iterator  = None
 options = None
 vae_model = None
 optimizer = None
-
 is_training = False    
 char_data = {} 
 
@@ -53,85 +65,71 @@ char_data = {}
 ##########################################################################################
 ###### App setup
 ##########################################################################################
-
 external_stylesheets=[dbc.themes.BOOTSTRAP]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 ##########################################################################################
 ###### UI Elements
 ##########################################################################################
-sample_size_slider =  dbc.CardBody(
-                        [dbc.FormGroup(
-                                    [
-                                    html.H4("Sample size", className="card-title"),
-                                    html.Br(),
-                                    dcc.Slider(id="sample_size",
-                                                min = 100,
-                                                max = 10000,
-                                                value =3744,
-                                                step = 36,
-                                                        ),    
-                                    dbc.Label(id="sample_size_status", children= "Sample size"),
-                                    dbc.Label(id='selected_indices'),
-                                    html.Hr(),
-                        ]),
-                    ])
-
 
 controls = dbc.Card([
-                    sample_size_slider,
-                    dbc.CardBody(
-                        [dbc.FormGroup([
-                                        html.H4("Control Panel", className="card-title"),
-                                        dbc.Button(id='merge_data', children= "Merge Data", color="dark", className="mr-1" ),
-                                        html.Br(),
-                                        dbc.Label(id='mrege_data_status', children="Data merge"),
-                                        ]),
-                            html.Hr(),
-                            dbc.FormGroup(
-                                        [
-                                        dbc.Button(id='tsne_button', children= "t-SNE Proc.", color="dark", className="mr-1" ),
-                                        html.Br(),
-                                        dbc.Label(id='tsne_status'),
-                                        html.Br(),
-                                        html.Br(),
-                                        dbc.Spinner(html.Div(id="loading_output")),
-                                        ]),
-                        ]),
+                    dbc.CardBody([
+                                html.H4("Sample size", className="card-title"),
+                                html.Br(),
+                                dcc.Slider(id="sample_size",
+                                            min = 100,
+                                            max = 10000,
+                                            value =3744,
+                                            step = 36,
+                                                    ),    
+                                dbc.Label(id="sample_size_status", children= "Sample size"),
+                                dbc.Label(id='selected_indices'),
+                                html.Hr(),
+                                ]),
+                    dbc.CardBody([
+                                html.H4("Control Panel", className="card-title"),
+                                dbc.Button(id='merge_data', children= "Merge Data", color="dark", className="mr-1" ),
+                                html.Br(),
+                                dbc.Label(id='mrege_data_status', children="Data merge"),
+                                html.Hr(),
+                                dbc.Button(id='tsne_button', children= "t-SNE Proc.", color="dark", className="mr-1" ),
+                                html.Br(),
+                                dbc.Label(id='tsne_status'),
+                                html.Br(),
+                                html.Br(),
+                                dbc.Spinner(html.Div(id="loading_output")),
+                                ]),
                     ],
                     body=True,
                     style={"width": "w-20"},)
 
 training = dbc.Card([
-                    dbc.CardBody([
-                                    html.H4("Settings"),
-                                    html.Br(),
-                                    dcc.Slider(id="epoch_number",
-                                                    min = 1,
-                                                    max = 250,
-                                                    value = 150,
-                                                    step = 5,
-                                                ),
-                                    dbc.Label(id="epoch_number_status", children= "Number of Epochs: "),
-                                    html.Hr(),
-                                    dbc.Button(id='training_model', children= "Train Model", color="dark", className="mr-1" ),
-                                    html.Br(),
-                                    html.P(id="training_status", children="Trains on the selected data"),
-                                    html.P(id="validation_status", children="Current Selection size:"),
-                                    html.Hr(),
-                                    dbc.Button(id='save_model', children= "Save Model", color="dark", className="mr-1" ),
-                                    html.P(id="save_model_status", children=""),
-                                    html.Hr(),
-                                    dbc.Button(id='reset_model', children= "Reset Model", color="dark", className="mr-1" ),
-                                    html.P(id="reset_model_status", children=""),
-                                    dbc.Spinner(html.Div(id="training_output")),                                
-                                ])
+                    html.H4("Settings"),
+                    html.Br(),
+                    dcc.Slider(id="epoch_number",
+                                    min = 1,
+                                    max = 250,
+                                    value = 150,
+                                    step = 5,
+                                ),
+                    dbc.Label(id="epoch_number_status", children= "Number of Epochs: "),
+                    html.Hr(),
+                    dbc.Button(id='training_model', children= "Train Model", color="dark", className="mr-1" ),
+                    html.Br(),
+                    html.P(id="training_status", children="Trains on the selected data"),
+                    html.P(id="validation_status", children="Current Selection size:"),
+                    html.Hr(),
+                    dbc.Button(id='save_model', children= "Save Model", color="dark", className="mr-1" ),
+                    html.P(id="save_model_status", children=""),
+                    html.Hr(),
+                    dbc.Button(id='reset_model', children= "Reset Model", color="dark", className="mr-1" ),
+                    html.P(id="reset_model_status", children=""),
+                    dbc.Spinner(html.Div(id="training_output")),                                
                     ],
                     body=True,
                     style={"width":"w-20"},)
 
 progress = dbc.Card([
-                    
                     dbc.CardBody([
                                 html.H4("Training Progress"),
                                 html.Br(),
@@ -144,14 +142,13 @@ progress = dbc.Card([
                     style={"width": "w-70"},)
 
 generation_graph = dbc.Card([
-                    dbc.CardBody([
-                                html.H4("Generated Samples"),
-                                html.Br(),
-                                dcc.Graph(id= "generated_samples", style={'visibility':'hidden'}),
-                                ])
-                    ],
-                    body=True,
-                    )
+                            dbc.CardBody([
+                                        html.H4("Generated Samples"),
+                                        html.Br(),
+                                        dcc.Graph(id= "generated_samples", style={'visibility':'hidden'}),
+                                        ])
+                            ],
+                            body=True)
 
 
 generation_variabels = dbc.Card([
@@ -312,9 +309,6 @@ app.layout = dbc.Container([
 ##########################################################################################
 ###### Generate functions
 ##########################################################################################
-
-
-
 @app.callback(
     Output('test_render','figure'),
     Output('test_render', 'style'),
