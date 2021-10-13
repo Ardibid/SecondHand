@@ -131,3 +131,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+data/alphabet_handwriting_64N_1_gj.npy
+data/alphabet_handwriting_64N_1_jw.npy
