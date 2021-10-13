@@ -73,6 +73,7 @@ render_folder = "./renders/"
 
 # file names
 samples_file_name_pattern = "alphabet_handwriting_64_"
+render_file_pattern = "full_font_data_"
 
 data_file_path = "alphabet_handwriting_64.npy"
 data_label_file_path = "labels.npy"
@@ -85,10 +86,6 @@ selected_labels_file = "selected_labels.npy"
 train_plot_numpy_file = "train_plot.npy"
 training_history_numpy_file = "training_loss_history.npy"
 validation_history_numpy_file = "validation_loss_history.npy"
-
-
-
-
 
 saved_model_file = "trained_model"
 
@@ -436,7 +433,14 @@ def generate_samples(char_index, mean, std):
                 )
     else:
         # generating the new sample grid
-        images, char_data, generated_ones, remaining = single_letter_test(char_index, mean, std, vae_model, raw_data, char_data, device, 4)
+        images, char_data, generated_ones, remaining = single_letter_test(char_index, 
+                                                                        mean, 
+                                                                        std, 
+                                                                        vae_model, 
+                                                                        raw_data, 
+                                                                        char_data, 
+                                                                        device, 
+                                                                        4)
         sample_fig = px.imshow(images, binary_string=True)
         sample_fig.update_layout(coloraxis_showscale=False)
         sample_fig.update_xaxes(showticklabels=False)
@@ -529,7 +533,7 @@ def save_typeface(n_clicks):
         return (dash.no_update)
     else:
         # generating sample chars
-        images = finalize_font(char_data)
+        images = finalize_font(char_data, render_folder, render_file_pattern)
         sample_fig = px.imshow(images, binary_string=True)
         sample_fig.update_layout(coloraxis_showscale=False)
         sample_fig.update_xaxes(showticklabels=False)
@@ -1146,5 +1150,5 @@ def tsne_algorithm(data):
     return (msg)
 
 
-#app.run_server(debug=True, port=8020)
-app.run_server(port=8020)
+app.run_server(debug=True, port=8020)
+# app.run_server(port=8020)

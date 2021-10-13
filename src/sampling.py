@@ -15,6 +15,7 @@ import torch
 import time
 import string
 import textwrap
+from os.path import join
 
 
 ##########################################################################################
@@ -40,7 +41,6 @@ def single_letter_test(char_index, mean, std,  model, data, char_data, device, i
         generated_ones (list): list of characters created
         remaining (list): lsit of characters remaining
     """
-    print (data.shape)
     # taking care of data and indices
     char_keys = string.ascii_letters
 
@@ -88,7 +88,7 @@ def single_letter_test(char_index, mean, std,  model, data, char_data, device, i
     return images, char_data, generated_ones, remaining
 
 
-def finalize_font(char_data):
+def finalize_font(char_data, render_folder, render_file_pattern):
     """
     Plots a simple grid for of one sample per letters that you have generated 
     in the previous cell
@@ -122,7 +122,10 @@ def finalize_font(char_data):
 
     # display and save
     timestr = time.strftime("%Y%m%d-%H%M%S")
-    np.save("./renders/full_font_data_{}".format(timestr), full_font_data)
+
+    render_file_path = join(render_folder,(render_file_pattern+timestr+".npy"))
+    np.save(render_file_path, #"./renders/full_font_data_{}".format(timestr), 
+            full_font_data)
 
     return images
 
