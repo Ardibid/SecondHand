@@ -61,6 +61,16 @@ optimizer = None
 is_training = False    
 char_data = {} 
 
+# path
+render_folder = "./renders/"
+model_folder = "./model/"
+plot_folder = "./plots/"
+
+train_plot_numpy_file = "train_plot.npy"
+training_history_numpy_file = "training_loss_history.npy"
+validation_history_numpy_file = "validation_loss_history.npy"
+saved_model_file = "trained_model"
+
 
 ##########################################################################################
 ###### App setup
@@ -183,11 +193,13 @@ generation_variabels = dbc.Card([
                                     html.P(id="remaining_chars"), 
                                     dbc.Button(id='save_typeface', children= "Save Typeface", color="dark", className="mr-1" ),
                                     html.P(id="save_typeface_status", children=""),
+                                    html.Hr(),
                                     dbc.Button(id='load_model', children= "Load Trained Model", color="dark", className="mr-1" ),
-                                    html.P(id="load_model_status", children=""),
+                                    html.Br(),
+                                    html.P(id="spacer", children=""),
                                     dbc.Button(id='load_favorite_model', children= "Load Favorite Model", color="dark", className="mr-1" ),
-                                    html.P(id="load_favorite_model_status", children=""),
-                                ])
+                                    html.P(id="load_model_status", children=""),
+                                    ])
                     ],
                     body=True,
                    )
@@ -295,19 +307,19 @@ data_graphs = dbc.Card([
                                             ),
                                     ])
                         ])
+header = html.H1("SecondHand Dashboard")
+
 app.layout = dbc.Container([
-                    html.H1("SecondHand Dashboard"),
-                    html.Hr(),
-                    data_graphs,
-                    html.Hr(),
-                    operation_tabs,
-                    ])#,fluid=True)
-
-
-
+                            header,
+                            html.Hr(),
+                            data_graphs,
+                            html.Hr(),
+                            operation_tabs,
+                        ])
 
 ##########################################################################################
 ###### Generate functions
+###### All functions related to sampling from the ML model and generaing new typefaces
 ##########################################################################################
 @app.callback(
     Output('test_render','figure'),
@@ -316,7 +328,8 @@ app.layout = dbc.Container([
     Output('line_padding_status', 'children'),
     Input('text_input', 'value'),
     Input('squeeze_factor', 'value'),
-    Input('line_padding', 'value'),)
+    Input('line_padding', 'value'),
+    prevent_initial_call=True)
 def output_text(text_input, squeeze_factor, line_padding):
     """
     Renders an input text with the generated typeface.
@@ -331,26 +344,30 @@ def output_text(text_input, squeeze_factor, line_padding):
         line_padding_status (string): updates the text
     """
     global char_data
+    
+    if (text_input is None):
+        return (dash.no_update, )*4
+    
+    else:
+        # generating the rendered image
+        images = render_text (text_input, char_data, squeeze_factor, line_padding)
+        sample_fig = px.imshow(images, binary_string=True)
+        sample_fig.update_layout(coloraxis_showscale=False)
+        sample_fig.update_xaxes(showticklabels=False)
+        sample_fig.update_yaxes(showticklabels=False)
 
-    # generating the rendered image
-    images = render_text (text_input, char_data, squeeze_factor, line_padding)
-    sample_fig = px.imshow(images, binary_string=True)
-    sample_fig.update_layout(coloraxis_showscale=False)
-    sample_fig.update_xaxes(showticklabels=False)
-    sample_fig.update_yaxes(showticklabels=False)
+        # formatting messages
+        squeeze_factor_msg = ("Squeeze Factor: {}".format(squeeze_factor))
+        line_padding_msg = ("Line padding: {}".format(line_padding))
 
-    # formatting messages
-    squeeze_factor_msg = ("Squeeze Factor: {}".format(squeeze_factor))
-    line_padding_msg = ("Line padding: {}".format(line_padding))
+        # saving image
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        sample_fig.write_image(render_folder+"rendered_text_{}.jpeg".format(timestr))
 
-    # saving image
-    timestr = time.strftime("%Y%m%d-%H%M%S")
-    sample_fig.write_image("./renders/rendered_text_{}.jpeg".format(timestr))
-
-    return  (sample_fig, 
-             {'visibility':'visible'}, 
-             squeeze_factor_msg, 
-             line_padding_msg)
+        return  (sample_fig, 
+                {'visibility':'visible'}, 
+                squeeze_factor_msg, 
+                line_padding_msg)
 
 
 @app.callback(
@@ -364,6 +381,7 @@ def output_text(text_input, squeeze_factor, line_padding):
     Input('char_index', 'value'),
     Input('mean', 'value'),
     Input('std', 'value'),
+    prevent_initial_call=True
     )
 def generate_samples(char_index, mean, std):
     """
@@ -385,57 +403,88 @@ def generate_samples(char_index, mean, std):
     global char_data, vae_model, raw_data, device
 
     char = string.ascii_letters[int(char_index)]
-    
-    # generating the new sample grid
-    images, char_data, generated_ones, remaining = single_letter_test(char_index, mean, std, vae_model, raw_data, char_data, device, 4)
-    sample_fig = px.imshow(images, binary_string=True)
-    sample_fig.update_layout(coloraxis_showscale=False)
-    sample_fig.update_xaxes(showticklabels=False)
-    sample_fig.update_yaxes(showticklabels=False)
 
-    # generating messages
-    generated_msg = ("{} chars generated: {}".format(len(generated_ones), generated_ones))
-    remaining_msg = ("{} chars remaining: {}".format(len(remaining),remaining))
+    if raw_data is None:
+        return ("Char: {}".format(char), 
+                "Mean: {}".format(mean),
+                "Std: {}".format(std), 
+                dash.no_update,
+                dash.no_update,
+                dash.no_update, 
+                dash.no_update, 
+                )
+    else:
+        # generating the new sample grid
+        images, char_data, generated_ones, remaining = single_letter_test(char_index, mean, std, vae_model, raw_data, char_data, device, 4)
+        sample_fig = px.imshow(images, binary_string=True)
+        sample_fig.update_layout(coloraxis_showscale=False)
+        sample_fig.update_xaxes(showticklabels=False)
+        sample_fig.update_yaxes(showticklabels=False)
 
+        # generating messages
+        generated_msg = ("{} chars generated: {}".format(len(generated_ones), generated_ones))
+        remaining_msg = ("{} chars remaining: {}".format(len(remaining),remaining))
 
-    return ("Char: {}".format(char), 
-            "Mean: {}".format(mean),
-            "Std: {}".format(std), 
-            generated_msg,
-            remaining_msg,
-            sample_fig, 
-            {'visibility':'visible'}, 
-            )
+        return ("Char: {}".format(char), 
+                "Mean: {}".format(mean),
+                "Std: {}".format(std), 
+                generated_msg,
+                remaining_msg,
+                sample_fig, 
+                {'visibility':'visible'}, 
+                )
+
 
 @app.callback(
         Output("load_model_status", 'children'),
-        Input("load_model", "n_clicks"))
-def load_model(n_clicks):
-    global vae_model
-    if n_clicks is None:
-        return (dash.no_update)
-    else:
-        load_training_data()
-        vae_model = torch.load("./models/trained_model") 
-        vae_model.eval()
-        print (vae_model)
-        return "Model loaded"
-
-
-@app.callback(
-        Output("load_favorite_model_status", 'children'),
+        Input("load_model", "n_clicks"),
         Input("load_favorite_model", "n_clicks"))
-def load_favorite_model(n_clicks):
+def load_saved_model(load_model, load_favorite_model):
+    """
+    Loads the default saved pytorch model. 
+    inputs: 
+        load_model n_clicks (int): checks if the button is pressed
+    outputs:
+        load_model_status children (string): updates the status text
+    """
     global vae_model
-    if n_clicks is None:
-        return (dash.no_update)
-    else:
-        load_training_data()
-        vae_model = torch.load("./models/favorite_model") 
-        vae_model.eval()
-        print (vae_model)
-        return "Favorite Model loaded"
 
+    file_to_load = None
+    msg = None
+    ctx= None
+
+    ctx = dash.callback_context
+
+
+    # ignoring if the key has never pressed
+    if not ctx.triggered:
+        return (dash.no_update)
+    
+    # case for each button
+    elif not( load_model is None and load_favorite_model is None):
+        # checking what to load
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+       
+        if button_id == "load_model":
+            file_to_load = "./models/trained_model"
+            msg = "Trained model is loaded"
+        
+        elif button_id == "load_favorite_model":
+            file_to_load = "./models/favorite_model"
+            msg = "Favorite model is loaded"
+        
+        else:
+            return "Nof file loaded"
+
+        # sampling requires having a dataloder, loads the latest selection
+        load_training_data()
+        vae_model = torch.load(file_to_load) 
+        vae_model.eval()
+        return msg
+    
+    # if there is no event
+    else:
+        return (dash.no_update)
 
 @app.callback(
         Output("save_typeface_status", 'children'),
@@ -443,17 +492,29 @@ def load_favorite_model(n_clicks):
         Output('latest_typeface', 'style'),
         Input("save_typeface", "n_clicks"))
 def save_typeface(n_clicks):
+    """
+    Saving the generated typeface at the default path. Then shows a sample of all chars
+    inputs:
+        save_typeface n_clicks (int): checks if the button is pressed
+    outpust:
+        save_typeface_status children (string): updates the statues text
+        latest_typeface figure (px.imshow): image of generated sample at the moment
+        latest_typeface style (dictionary):  converts the figure style to visible
+    """
     global char_data
+
+    # ignoring if the key has never pressed
     if n_clicks is None:
         return (dash.no_update)
     else:
+        # generating sample chars
         images = finalize_font(char_data)
         sample_fig = px.imshow(images, binary_string=True)
         sample_fig.update_layout(coloraxis_showscale=False)
         sample_fig.update_xaxes(showticklabels=False)
         sample_fig.update_yaxes(showticklabels=False)
 
-
+        # saving the image
         timestr = time.strftime("%Y%m%d-%H%M%S")
         sample_fig.write_image("./renders/font_catalogue_{}.jpeg".format(timestr))
         
@@ -463,36 +524,44 @@ def save_typeface(n_clicks):
 
 ##########################################################################################
 ###### Train functions
+###### All functions related to trainig the ML model
 ##########################################################################################
+
 @app.callback(Output('train_progress', 'figure'),
               Output('train_progress', 'style'),
               Output('train_progress_graph', 'figure'),
               Output('train_progress_graph', 'style'),
               Input('interval-component', 'n_intervals'))
 def update_metrics(n):
+    """
+    Updates the training graphs automatically.
+    """
     global is_training
-    
+
+    # check if the model is in training mode
     if is_training:
-        image= np.load("./plots/train_plot.npy")
+        # loading files
+        plot_numpy_file_path = join(plot_folder, train_plot_numpy_file)
+        training_loss   = np.load(join(plot_folder, training_history_numpy_file))
+        validation_loss = np.load(join(plot_folder, validation_history_numpy_file))
+
+        # making the figure
+        image= np.load(plot_numpy_file_path)
         sample_fig = px.imshow(image, binary_string=True)
         sample_fig.update_layout(coloraxis_showscale=False)
         sample_fig.update_xaxes(showticklabels=False)
         sample_fig.update_yaxes(showticklabels=False)
 
-        training_loss   = np.load("./plots/training_loss_history.npy")
-        validation_loss = np.load("./plots/validation_loss_history.npy")
-
+        # creating the plot
         progress_plot = go.Figure()
-
         progress_plot.add_trace(go.Scatter(y=training_loss,
                     mode='lines',
                     name='Training Loss'))
-        
+
         progress_plot.add_trace(go.Scatter( y=validation_loss,
                     mode='lines',
                     name='Validation Loss'))
 
-        progress_plot.update_yaxes(type="log")
         progress_plot.update_layout(
                             legend=dict(
                                 x=0,
@@ -506,7 +575,8 @@ def update_metrics(n):
                             )
                         )
 
-        return sample_fig, {'visibility':'visible'},progress_plot, {'visibility':'visible'}
+        return sample_fig, {'visibility':'visible'},progress_plot,{'visibility':'visible'}
+                
     else:
         return (dash.no_update,)*4
 
@@ -515,6 +585,14 @@ def update_metrics(n):
     Output("epoch_number_status", 'children'),
     Input('epoch_number', 'value'))
 def set_epoch_numbers(epoch_number):
+    """
+    Updates the number of epochs
+    inptus:
+        epoch_number (int): number of epochs to train the model
+    outputs:
+        epoch_number_status children (string): the status update 
+    """
+
     global number_of_epochs
     if epoch_number is None:
         return (dash.no_update)
@@ -526,25 +604,46 @@ def set_epoch_numbers(epoch_number):
         Output("reset_model_status", 'children'),
         Input("reset_model", "n_clicks"))
 def reset_model(n_clicks):
+    """
+    Creates the model at loading, then upon click, resets the model, and probably solve all human problems
+    inputs:
+        reset_model n_clicks (int): clicks on the button
+    outputs:
+        reset_model_status children (string): the status update 
+    """
     global vae_model, options, optimizer
+
     if n_clicks is None:
         options = Option_list(n_class= 52)
         vae_model = VAE(options, device).to(device)
         optimizer = optim.Adam(vae_model.parameters(), lr = options.lr)
-        return "Model created"
+        return "Model initiated"
     else:
+        print(torch.cuda.memory_allocated())
+        vae_model = None
+        print(torch.cuda.memory_allocated())
         vae_model = VAE(options, device).to(device)
+        print(torch.cuda.memory_allocated())
         return "Model reset"
 
 @app.callback(
         Output("save_model_status", 'children'),
         Input("save_model", "n_clicks"))
 def save_model(n_clicks):
+    """
+    Saves the model and overrides the previous save. 
+    inputs:
+        save_model n_clicks (int): clicks on the button
+    outputs:
+        save_model_status children (string): the status update 
+    """
+
     global vae_model
     if n_clicks is None:
         return "No model saved"
     else:
-        torch.save(vae_model,"./models/trained_model")
+        model_save_path = join(model_folder, saved_model_file)
+        torch.save(vae_model, model_save_path)
         return "Model saved"
 
 @app.callback(
@@ -552,6 +651,13 @@ def save_model(n_clicks):
     Output('validation_status', 'children'),
     Input('training_model', 'n_clicks'))
 def train_model_call(n_clicks):
+    """
+    Trains the model for a given number of epochs. 
+    inputs:
+        training_model n_clicks (int): clicks on the button
+    outputs:
+        save_model_status children (string): the status update 
+    """
     global vae_model, train_dataset, test_dataset, train_iterator, test_iterator, options, optimizer
     global is_training
     if n_clicks is None:
@@ -574,6 +680,8 @@ def train_model_call(n_clicks):
         return (train_report,eval_report)
 
 def load_training_data():
+    """
+    Loads the training data from the data folder"""
     global raw_data, train_dataset, test_dataset, train_iterator, test_iterator, options
 
     raw_data = Handwiriting_dataset(resize_input=False, 
