@@ -45,7 +45,7 @@ from src.sampling import *
 ######################################################################
 parser = argparse.ArgumentParser(prog='SecondHand',
                                 description="A Dash app to communicate with the SecondHand typeface generator")
-parser.add_argument('mode', 
+parser.add_argument('-mode', 
                         help="Run the App in \"debug\", \"local\", or \"remote\" mode (str)", 
                         default= "debug",
                         nargs='?',
@@ -1175,7 +1175,6 @@ def tsne_algorithm(data):
 ### Dash App Running!
 ######################################################################
 mode_options = {'debug':'d', 'local':'l', 'remote':'r'}
-#mode_selection = 'debug'
 
 if __name__ == '__main__':
         mode = mode_options[mode_selection]
