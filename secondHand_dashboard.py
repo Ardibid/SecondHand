@@ -86,6 +86,10 @@ train_plot_numpy_file = "train_plot.npy"
 training_history_numpy_file = "training_loss_history.npy"
 validation_history_numpy_file = "validation_loss_history.npy"
 
+
+
+
+
 saved_model_file = "trained_model"
 
 
@@ -559,6 +563,7 @@ def update_metrics(n):
     if is_training:
         # loading files
         plot_numpy_file_path = join(plot_folder, train_plot_numpy_file)
+
         training_loss   = np.load(join(plot_folder, training_history_numpy_file))
         validation_loss = np.load(join(plot_folder, validation_history_numpy_file))
 
@@ -689,7 +694,18 @@ def train_model_call(n_clicks):
 
         options.N_EPOCHS = number_of_epochs
 
-        vae_model, train_loss_history, eval_loss_history = train_model(vae_model, optimizer, train_iterator, test_iterator, device, options)
+        vae_model, train_loss_history, eval_loss_history = train_model(vae_model, 
+                                                                        optimizer, 
+                                                                        train_iterator, 
+                                                                        test_iterator, 
+                                                                        device, 
+                                                                        options,
+                                                                        plot_folder= plot_folder,
+                                                                        file_names = [train_plot_numpy_file,
+                                                                                    training_history_numpy_file,
+                                                                                    validation_history_numpy_file])
+
+
 
         train_report = "Training Loss: {:2f}".format(train_loss_history[-1])
         eval_report = "Eval Loss: {:2f}".format(eval_loss_history[-1])
@@ -1130,5 +1146,5 @@ def tsne_algorithm(data):
     return (msg)
 
 
-app.run_server(debug=True, port=8020)
-# app.run_server(port=8020)
+#app.run_server(debug=True, port=8020)
+app.run_server(port=8020)

@@ -20,7 +20,7 @@ from torch import optim as optim
 
 # misc
 import numpy as np
-
+from os.path import join
 # modules
 from .utils import batch_recon
 
@@ -304,7 +304,7 @@ def eval_model(model, options, data_iterator, device, plot, epoch=0):
 # Support functions
 ##########################################################################################
 
-def train_model(model, optimizer, train_iterator, test_iterator, device, options):
+def train_model(model, optimizer, train_iterator, test_iterator, device, options, plot_folder= None, file_names= None):
     """
     This function puts the model in training mode (to change the behavior of batchNorm)
     and then pass the train data to train the model
@@ -314,6 +314,8 @@ def train_model(model, optimizer, train_iterator, test_iterator, device, options
       device: 'cpu' or 'cuda0', to determine which computing device to use
       options: the model options
     """
+    train_plot_numpy_file, training_history_numpy_file, validation_history_numpy_file = file_names
+
     # some placholders
     train_loss_history = []
     eval_loss_history = []
@@ -321,10 +323,15 @@ def train_model(model, optimizer, train_iterator, test_iterator, device, options
     eval_kld_losses_history = []
 
     fixed_sample = None
+    
+    training_history_numpy_file_path = join(plot_folder, training_history_numpy_file)
+    np.save(training_history_numpy_file_path, np.zeros(shape=(1, 1)))
+    
+    validation_history_numpy_file_path = join(plot_folder, validation_history_numpy_file)
+    np.save(validation_history_numpy_file_path, np.zeros(shape=(1, 1)))
 
-    np.save("./plots/training_loss_history", np.zeros(shape=(1, 1)))
-    np.save("./plots/validation_loss_history", np.zeros(shape=(1, 1)))
-    np.save("./plots/train_plot", np.ones(shape=(6*64, 8*64)))
+    train_plot_numpy_file_path = join(plot_folder, train_plot_numpy_file)
+    np.save(train_plot_numpy_file_path, np.ones(shape=(6*64, 8*64)))
 
     for epoch in range(options.N_EPOCHS):
         epoch_loss = []
@@ -368,9 +375,10 @@ def train_model(model, optimizer, train_iterator, test_iterator, device, options
               train_rec_losses.item(), train_kld_losses.item())
 
         if plot:
-            np.save("./plots/training_loss_history",
+            np.save(training_history_numpy_file_path, #"./plots/training_loss_history",
                     np.array(train_loss_history))
-            np.save("./plots/validation_loss_history",
+                    
+            np.save(validation_history_numpy_file_path, #"./plots/validation_loss_history",
                     np.array(eval_loss_history))
 
         eval_rec_losses_history.append(np.mean(eval_rec_losses))
