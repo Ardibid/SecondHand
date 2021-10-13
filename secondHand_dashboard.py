@@ -29,14 +29,31 @@ import pandas as pd
 from scipy.spatial import KDTree
 from openTSNE import TSNE
 
-# System
+# misc
 from os import listdir
 from os.path import isfile, join
+import argparse
 
 # Modules
 from src.utils import *
 from src.models import *
 from src.sampling import *
+
+
+######################################################################
+### Arguments
+######################################################################
+parser = argparse.ArgumentParser(prog='SecondHand',
+                                description="A Dash app to communicate with the SecondHand typeface generator")
+parser.add_argument('mode', 
+                        help="Run the App in \"debug\", \"local\", or \"remote\" mode (str)", 
+                        default= "debug",
+                        nargs='?',
+                        type=str)
+
+args = parser.parse_args()
+
+mode_selection = args.mode
 
 ##########################################################################################
 ###### Main setup
@@ -1150,5 +1167,29 @@ def tsne_algorithm(data):
     return (msg)
 
 
-app.run_server(debug=True, port=8020)
+#app.run_server(debug=True, port=8020)
 # app.run_server(port=8020)
+
+######################################################################
+### Dash App Running!
+######################################################################
+mode_options = {'debug':'d', 'local':'l', 'remote':'r'}
+#mode_selection = 'debug'
+
+if __name__ == '__main__':
+        mode = mode_options[mode_selection]
+        if mode =='d':
+                # for test and debug
+                app.run_server(debug=True)
+        elif mode=='l':
+                # to run on local device
+                app.run_server(debug=False)
+
+        elif mode=='r':
+                """
+                To run and access it over network
+                Access it over network on Chrome at:
+                server_ip:8080
+                i.e.: 192.168.86.34:8080
+                """
+                app.run_server(debug=False, port=8080, host='0.0.0.0')
