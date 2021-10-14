@@ -1,6 +1,7 @@
 # SecondHand
 A toolkit to interface SecondHand a C-VAE model for handwriting typeface generation.<br>
-<img src="media\secondhand_hero_compact.png" width="750"/>
+
+<img src="media\hero.gif" width="750"/>
 
 --- 
 
@@ -77,5 +78,8 @@ Once Done with all the glyphs, you can save the typeface and start rendering tex
 * [kaleido](https://pypi.org/project/kaleido/): 0.2.1
 
 --- 
-By [Ardavn Bidgoli](ardavan.io), Fall 2021 <br>
-[GitHub](https://github.com/Ardibid)
+By [Ardavan Bidgoli](ardavan.io), Fall 2021 , 
+[GitHub](https://github.com/Ardibid) <br>
+Developed as a part of Ardavan Bidgoli's PhD thesis and 48-770 @ Carnegie Mellon University, School of Architecture. <br>
+
+
