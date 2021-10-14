@@ -1,5 +1,5 @@
-dash= 2.0.0
-dash_bootstrap_components= 0.13.1
+dash==2.0.0
+dash_bootstrap_components=0.13.1
 plotly==5.3.1
 torch==1.9.1+cu102 
 numpy==1.21.2 

@@ -52,3 +52,24 @@ Once Done with all the glyphs, you can save the typeface and start rendering tex
 
 ![demo](/media/render_cropped.gif?raw=true)
 
+## Technicals
+
+
+### Dependencies
+(the toolkit is developed with the versions mentioned here, use other versions at your own risk)
+
+
+* [dash](https://pypi.org/project/dash/): 2.0.0
+* [dash_bootstrap_components](https://dash-bootstrap-components.opensource.faculty.ai/): 0.13.1
+* [plotly](https://pypi.org/project/plotly/): 5.3.1
+* [torch](https://pytorch.org/): 1.9.1+cu102
+* [numpy](https://numpy.org/): 1.21.2
+* [pandas](https://pandas.pydata.org/): 1.3.3
+* [scipy](https://www.scipy.org/): 1.7.1
+* [openTSNE](https://opentsne.readthedocs.io/en/latest/): 0.6.0
+* [opencv-python](https://pypi.org/project/opencv-python/):4.5.3  
+* [kaleido](https://pypi.org/project/kaleido/): 0.2.1
+
+--- 
+By [Ardavn Bidgoli](ardavan.io), Fall 2021 <br>
+[GitHub](https://github.com/Ardibid)
