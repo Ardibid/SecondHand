@@ -1,6 +1,6 @@
 # SecondHand
-A toolkit to interface SecondHand a C-VAE model for handwriting typeface generation. 
-![demo](media\secondhand_hero_compact.png?raw=true)
+A toolkit to interface SecondHand a C-VAE model for handwriting typeface generation.<br>
+<img src="media\secondhand_hero_compact.png" width="750"/>
 
 --- 
 
@@ -38,22 +38,25 @@ There are three modes of running the app:
 Use the two scatter plots to select a portion of data set, or even the whole. The larger the selection, the longer it takes to train the model. You can inspect the samples using plots in the seconf row. You can use rectangle selection tool, lasso selection tool, and use shift to combine different selections. <br>
 You can use the sample size slider to view more data at a time. By default you will see a small portion of data, to make it easier for your browser, RAM, and GPU. But you can cranck that slider to show you all +30K samples, your call!
 
-![demo](media\data_viewer_lowres.gif?raw=true)
+<img src="media\data_viewer_lowres.gif" width="500"/>
 
 ## Model Training
 Once you have your data selected, you can use the ``Train`` tab to train the C-VAE model. You can add/remove/edit your selection **after each round of training is over**. Your model will continue training with the new selection. 
 You can save the model or simply reset it to start from the begining. Your model will be re-initiated, but your selection will stays the same.
 
-![demo](media\training_lowres.gif?raw=true)
+<!-- ![demo](media\training_lowres.gif?raw=true) -->
+<img src="media\training_lowres.gif" width="500"/>
 
 ## Typeface Generation
 You can use the ``Generation`` tab to play with the model's latent space and fine tune each glyph in your tyepface.
 
-![demo](media\generation_short_cropped.gif?raw=true)
+<!-- ![demo](media\generation_short_cropped.gif?raw=true) -->
+<img src="media\generation_short_cropped.gif" width="500"/>
 
 Once Done with all the glyphs, you can save the typeface and start rendering text with it!
 
-![demo](media\render_cropped.gif?raw=true)
+<!-- ![demo](media\render_cropped.gif?raw=true) -->
+<img src="media\render_cropped.gif" width="500"/>
 
 ## Technicals
 
