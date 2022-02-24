@@ -2,7 +2,7 @@
     File name: secondhand_dashboard.py
     Author: Ardavan Bidgoli
     Date created: 10/13/2021
-    Date last modified: 10/13/2021
+    Date last modified: 02/23/2022
     Python Version: 3.8.5
     License: MIT
 '''
@@ -838,7 +838,7 @@ def show_selected_data(selectedData,selectedData_label):
         # saving the data on the disk
         path_to_save = "./data/"
         np.save(join(path_to_save,"selected_data"),shared_dataset[selected_indices])
-        np.save(join(path_to_save,"selected_labels"), shared_dataset_labels[selected_indices])
+        np.save(join(path_to_save,"selected_labels"),shared_dataset_labels[selected_indices])
 
         # making the plot
         images = making_grid_selected_image(shared_dataset,selected_indices )
