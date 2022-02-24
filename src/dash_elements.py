@@ -150,6 +150,7 @@ text_render = dbc.Card([
                                             value =20,
                                             step = 1,
                                             updatemode='drag',
+                                            marks=None,
                                         ), 
                                     dbc.Label(id="line_padding_status", children= "Line Padding"),
                                     dcc.Slider(id="line_padding",
