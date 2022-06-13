@@ -2,7 +2,7 @@
     File name: dash_elements.py
     Author: Ardavan Bidgoli
     Date created: 10/13/2021
-    Date last modified: 10/13/2021
+    Date last modified: 02/23/2022
     Python Version: 3.8.5
     License: MIT
 '''
@@ -22,6 +22,7 @@ controls = dbc.Card([
                                             marks=None,
                                                     ),    
                                 dbc.Label(id="sample_size_status", children= "Sample size"),
+                                html.Br(),
                                 dbc.Label(id='selected_indices'),
                                 html.Hr(),
                                 ]),

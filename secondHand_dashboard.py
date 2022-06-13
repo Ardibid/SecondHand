@@ -650,9 +650,12 @@ def update_sample_size(sample_size):
         tsne_samples_size = sample_size
         scatter_plot, scatter_plot_label = plot_data_wrapper()
         max_value = shared_dataset_labels.shape[0]
-        return ["Sample size: {}".format(sample_size), max_value,
-                scatter_plot , {'visibility': 'visible'},
-                scatter_plot_label , {'visibility': 'visible'}]
+        return ["Sample size: {}".format(sample_size), 
+                max_value,
+                scatter_plot , 
+                {'visibility': 'visible'},
+                scatter_plot_label , 
+                {'visibility': 'visible'}]
 
 def plot_data_wrapper():
     """
@@ -846,7 +849,7 @@ def show_selected_data(selectedData,selectedData_label):
         sample_fig.update_layout(coloraxis_showscale=False)
         sample_fig.update_xaxes(showticklabels=False)
         sample_fig.update_yaxes(showticklabels=False)
-
+        
         msg = "{} item(s) selected.".format(size_message)
         return [sample_fig,{'visibility': 'visible'}, msg]
 
