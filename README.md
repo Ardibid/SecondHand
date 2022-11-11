@@ -78,7 +78,7 @@ Once Done with all the glyphs, you can save the typeface and start rendering tex
 * [kaleido](https://pypi.org/project/kaleido/): 0.2.1
 
 --- 
-By [Ardavan Bidgoli](ardavan.io), Spring 2022, 
+By [Ardavan Bidgoli](https://wwww.ardavan.io), Spring 2022, 
 [GitHub](https://github.com/Ardibid) <br>
 Developed as a part of Ardavan Bidgoli's PhD thesis and 48-770 @ Carnegie Mellon University, School of Architecture. <br>
 
