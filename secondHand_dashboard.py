@@ -70,7 +70,9 @@ number_of_epochs = 25
 raw_data = None
 train_dataset = None
 test_dataset = None
+validation_dataset = None 
 train_iterator = None
+validation_iterator = None
 test_iterator  = None
 options = None
 vae_model = None
@@ -462,6 +464,7 @@ def save_model(n_clicks):
 @app.callback(
     Output('training_status', 'children'),
     Output('validation_status', 'children'),
+    Output('test_status', 'children'),
     Input('training_model', 'n_clicks'))
 def train_model_call(n_clicks):
     """
@@ -471,24 +474,25 @@ def train_model_call(n_clicks):
     outputs:
         save_model_status children (string): the status update 
     """
-    global vae_model, train_dataset, test_dataset, train_iterator, test_iterator, options, optimizer
+    global vae_model, train_dataset, validation_dataset, test_dataset, train_iterator, validation_iterator, test_iterator, options, optimizer
     global is_training
 
     if n_clicks is None:
         selected_label_path = join(data_folder, selected_labels_file)
         labels = np.load(selected_label_path)
         msg = "Preselected sample size: {}".format(labels.shape[0])
-        return (dash.no_update, msg)
+        return (dash.no_update, msg, dash.no_update)
     else:
         is_training = True
-        train_dataset, test_dataset, train_iterator, test_iterator = load_training_data()
+        train_dataset, validation_dataset, test_dataset, train_iterator, validation_iterator, test_iterator = load_training_data()
 
         options.N_EPOCHS = number_of_epochs
 
-        vae_model, train_loss_history, eval_loss_history = train_model(vae_model, 
+        vae_model, train_loss_history, eval_loss_history, test_loss = train_model(vae_model, 
                                                                         optimizer, 
                                                                         train_iterator, 
-                                                                        test_iterator, 
+                                                                        validation_iterator, 
+                                                                        test_iterator,
                                                                         device, 
                                                                         options,
                                                                         plot_folder= plot_folder,
@@ -496,20 +500,19 @@ def train_model_call(n_clicks):
                                                                                       training_history_numpy_file,
                                                                                       validation_history_numpy_file])
 
-
-
+ 
         train_report = "Training Loss: {:2f}".format(train_loss_history[-1])
         eval_report = "Eval Loss: {:2f}".format(eval_loss_history[-1])
-        
+        test_report = "Test Loss: {:2f}".format(test_loss[-1])        
         is_training = False
 
-        return (train_report, eval_report)
+        return (train_report, eval_report, test_report)
 
 def load_training_data():
     """
     Loads the training data from the data folder
     """
-    global raw_data, train_dataset, test_dataset, train_iterator, test_iterator, options
+    global raw_data, train_dataset, validation_dataset, test_dataset, train_iterator, validation_iterator, test_iterator, options
     
     x_path = join(data_folder, selected_data_file)
     y_path = join(data_folder, selected_labels_file)

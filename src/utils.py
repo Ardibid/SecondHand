@@ -113,10 +113,19 @@ def dataloader_creator(raw_data, opt):
     """
     training_size = int(raw_data.X.shape[0]*(1. - opt.LEARN_TEST_RATIO))
     test_size = raw_data.X.shape[0] - training_size
-
-    train_dataset, test_dataset = torch.utils.data.random_split(raw_data,[training_size, test_size])
+    validation_size = int(training_size*0.75)
+    training_size -= validation_size
+    
+    train_dataset, validation_dataset, test_dataset = torch.utils.data.random_split(raw_data,[training_size,
+                                                                          validation_size, 
+                                                                          test_size])
 
     train_iterator = DataLoader(train_dataset, 
+                                batch_size=opt.BATCH_SIZE,
+                                shuffle=True, 
+                                drop_last= True)
+    
+    validation_iterator = DataLoader(validation_dataset, 
                                 batch_size=opt.BATCH_SIZE,
                                 shuffle=True, 
                                 drop_last= True)
@@ -126,7 +135,7 @@ def dataloader_creator(raw_data, opt):
                                 shuffle=True, 
                                 drop_last= True)
     
-    return train_dataset, test_dataset, train_iterator, test_iterator
+    return train_dataset, validation_dataset, test_dataset, train_iterator, validation_iterator, test_iterator
 
 
 def batch_recon(model, opt, train_iterator, save_on_disk = False, fixed_sample=None):

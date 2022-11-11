@@ -1,5 +1,6 @@
 # SecondHand
-A toolkit to interface SecondHand a C-VAE model for handwriting typeface generation.<br>
+---
+A toolkit to interface SecondHand; a C-VAE model for handwriting typeface generation.<br>
 
 <img src="media\hero.gif" width="750"/>
 

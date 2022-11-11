@@ -299,18 +299,54 @@ def eval_model(model, options, data_iterator, device, plot, epoch=0):
 
     return eval_losses, eval_rec_losses, eval_kld_losses
 
+def test_model(model, options, data_iterator, device):
+    """
+    This function puts the model in eval mode (to change the behavior of batchNorm)
+    and then pass the test data to evaluate the model
+      model: model to evaluate
+      data_iterator: usually the test_dataiterator
+      device: 'cpu' or 'cuda0', to determine which computing device to use
+      plot: defines if we need to plot the results
+    """
+
+    model.eval()
+    # turning off the gradient
+    with torch.no_grad():
+        test_losses = []
+        test_rec_losses = []
+        test_kld_losses = []
+
+        # iterate over the data iterator
+        for data in (data_iterator):
+            x = data[0]
+            x = x.to(device)
+            y = data[1]
+            y = y.to(device)
+
+            # pass the data in the model
+            x_rec, mean, log_var = model(x, y)
+
+            # calcualte the loss
+            loss, rec_loss, kld_loss = loss_function(
+                x.squeeze(), x_rec.squeeze(), mean, log_var)
+
+            test_losses.append(loss.item())
+            
+        
+    return test_losses
+
 
 ##########################################################################################
 # Support functions
 ##########################################################################################
 
-def train_model(model, optimizer, train_iterator, test_iterator, device, options, plot_folder= None, file_names= None):
+def train_model(model, optimizer, train_iterator, validation_iterator, test_iterator, device, options, plot_folder= None, file_names= None):
     """
     This function puts the model in training mode (to change the behavior of batchNorm)
     and then pass the train data to train the model
       model: model to evaluate
       train_iterator: data loader for training
-      test_iterator: data iterator for evaluation and test
+      validation_iterator: data iterator for evaluation 
       device: 'cpu' or 'cuda0', to determine which computing device to use
       options: the model options
     """
@@ -367,7 +403,12 @@ def train_model(model, optimizer, train_iterator, test_iterator, device, options
             plot = False
         # evaluating the model and measuring the eval loss
         eval_loss, eval_rec_losses, eval_kld_losses = eval_model(
-            model, options, test_iterator, device, plot, epoch)
+                                                                model, 
+                                                                options, 
+                                                                validation_iterator, 
+                                                                device, 
+                                                                plot, 
+                                                                epoch)
         train_loss_history.append(np.mean(epoch_loss))
         eval_loss_history.append(np.mean(eval_loss))
 
@@ -384,5 +425,12 @@ def train_model(model, optimizer, train_iterator, test_iterator, device, options
         eval_rec_losses_history.append(np.mean(eval_rec_losses))
         eval_kld_losses_history.append(np.mean(eval_kld_losses))
         batch_recon(model, options, train_iterator, True, fixed_sample)
-
-    return model, train_loss_history, eval_loss_history
+    
+    
+    test_loss = test_model(model, 
+                            options, 
+                            test_iterator, 
+                            device)
+    
+    
+    return model, train_loss_history, eval_loss_history, test_loss
